@@ -67,12 +67,9 @@ def get_rolling_plot(ticker: str, mode: str):
         })
 
     fig = go.Figure()
-    df = pd_series.reset_index()
-    df.columns = ["Date", "PD"]
-
     fig.add_trace(go.Scatter(
-        x=df["Date"],
-        y=df["PD"],
+        x=pd_series.Date,
+        y=pd_series.PD,
         mode='lines+markers',
         name='PD',
         line=dict(width=2)
