@@ -61,7 +61,7 @@ def main_dispatch(ticker: str, analysis_type: str = "spot", mode: str = "kmv"):
 
 if __name__ == "__main__":
     print("Merton / KMV Credit Risk Model")
-    ticker = input("Enter ticker (e.g., APA): ").strip().upper()
+    ticker = input("Enter ticker (e.g., AAPL): ").strip().upper()
     analysis_type = input("Select analysis type ('spot' or 'rolling'): ").strip().lower()
     mode = input("Select model ('merton' or 'kmv'): ").strip().lower()
 
