@@ -22,10 +22,14 @@ def historical_quarterly_pd_series(ticker: str, window: int = 63, mode: str = "k
     balance_sheet = balance_sheet.rename(columns=relevant_cols)
 
     first_balance_date = balance_sheet.index.min()
+
+    if pd.isna(first_balance_date):
+        print(f"[WARN] No valid balance sheet date found for {ticker}. Using fallback start date.")
+        first_balance_date = pd.Timestamp.today() - pd.DateOffset(years=5)
+
     price_start = (first_balance_date - pd.Timedelta(days=window)).strftime("%Y-%m-%d")
     price_end = (datetime.today().date() - timedelta(days=1)).strftime("%Y-%m-%d")
     prices_df = load_or_download_data(ticker, start=price_start, end=price_end)
-
 
     price_col = 'Adj Close' if 'Adj Close' in prices_df.columns else 'Close'
     prices = prices_df[price_col].dropna()
@@ -38,7 +42,6 @@ def historical_quarterly_pd_series(ticker: str, window: int = 63, mode: str = "k
     for date, row in balance_sheet.iterrows():
         price_window = prices.loc[prices.index <= date].tail(window)
 
-
         if len(price_window) < window * 0.8:
             print(f"[SKIP] Not enough data for window ending {date.date()} ({len(price_window)} points)")
             continue
@@ -50,7 +53,7 @@ def historical_quarterly_pd_series(ticker: str, window: int = 63, mode: str = "k
             price = float(price_window.iloc[-1])
             shares_outstanding = float(row["shares_outstanding"])
             sigma_E = float(sigma_E)
-            
+
             E = price * shares_outstanding
 
             if mode == "kmv" and "current_debt" in row and "long_term_debt" in row:
@@ -61,7 +64,6 @@ def historical_quarterly_pd_series(ticker: str, window: int = 63, mode: str = "k
             if any(pd.isna([D, E, sigma_E])):
                 print(f"[SKIP] Missing inputs at {date.date()} (D={D}, E={E}, sigma_E={sigma_E})")
                 continue
-
 
             result = (
                 solve_kmv_model(E, sigma_E, D_kmv=D, r=r, T=T)
@@ -82,3 +84,4 @@ def historical_quarterly_pd_series(ticker: str, window: int = 63, mode: str = "k
 
     pd_df = pd.DataFrame({"Date": pd_dates, "PD": pd_values})
     return pd_df.set_index("Date")
+
