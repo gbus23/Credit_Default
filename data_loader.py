@@ -104,22 +104,43 @@ def get_fundamentals(ticker: str):
     return shares_outstanding, total_debt, kmv_debt
 
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+import numpy as np
+import yfinance as yf
+
 def fetch_stock_data(ticker: str, years: int = 1):
     """
     Calcule le prix actuel et la volatilité historique de l’action.
+    Utilise un fallback via yfinance.info si les données sont absentes.
     """
     end = datetime.today().date()
     start = (end - relativedelta(years=years)).strftime("%Y-%m-%d")
     end = end.strftime("%Y-%m-%d")
-    data = load_or_download_data(ticker, start, end)
+
+    data = yf.download(ticker, start=start, end=end)
+
+    if data.empty:
+        # fallback : utilise info
+        info = yf.Ticker(ticker).info
+        price = info.get("regularMarketPrice")
+        if price is None:
+            raise ValueError(f"No data or price info available for {ticker}")
+        sigma_E = info.get("beta", 1.0) * 0.2  # Approximation très grossière
+        return price, sigma_E
 
     price_col = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
     prices = data[price_col].dropna()
-    price = float(prices.iloc[-1].item())
+
+    if prices.empty:
+        raise ValueError(f"No price series available for {ticker} in {price_col}")
+
+    price = float(prices.iloc[-1])
     returns = np.log(prices / prices.shift(1)).dropna()
     sigma_E = float(returns.std()) * np.sqrt(252)
 
     return price, sigma_E
+
 
 
 def prime_cache_with_history(ticker: str, years: int = 5):
