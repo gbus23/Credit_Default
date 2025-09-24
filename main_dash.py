@@ -14,9 +14,17 @@ from stress_test import stress_test
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
-def run_analysis(ticker: str, r: float = 0.04, T: float = 1.0, mode: str = "merton"):
+
+def run_analysis(ticker: str, r: float = 0.04, mode: str = "merton"):
     price, sigma_E = fetch_stock_data(ticker)
     shares_outstanding, total_debt, kmv_debt = get_fundamentals(ticker)
+    ticker_obj = yf.Ticker(ticker)
+    balance_sheet = ticker_obj.balance_sheet
+
+    short_term_debt = balance_sheet.loc["Short Long Term Debt", :].iloc[0] if "Short Long Term Debt" in balance_sheet.index else 0
+    long_term_debt = balance_sheet.loc["Long Term Debt", :].iloc[0] if "Long Term Debt" in balance_sheet.index else 0
+
+    T=1.0
     E = price * shares_outstanding
 
     if mode == "kmv":
@@ -35,10 +43,12 @@ def run_analysis(ticker: str, r: float = 0.04, T: float = 1.0, mode: str = "mert
         "Sigma_V": result['sigma_V'],
         "PD": result.get('PD_KMV') if mode == "kmv" else result['PD'],
         "DistanceToDefault": result.get('DistanceToDefault', None),
+        "Maturity (T)": T,
         "Mode": mode
     }
 
     return pd.DataFrame.from_dict(output, orient='index', columns=['Value'])
+
 
 def get_company_summary(ticker_str: str) -> str:
     try:
@@ -63,6 +73,14 @@ def get_company_summary(ticker_str: str) -> str:
     except Exception:
         return f"No description available for {ticker_str.upper()}."
 
+def format_pd_dynamic(value):
+    if value > 0.01:
+        return f"{value:.2%}"
+    elif value > 1e-4:
+        return f"{value:.5%}"
+    else:
+        return f"{value:.1e}"
+
 def get_rolling_plot(ticker: str, mode: str):
     prime_cache_with_history(ticker, years=5)
 
@@ -84,6 +102,13 @@ def get_rolling_plot(ticker: str, mode: str):
             "yaxis": {"visible": False},
         })
 
+    # Hover text formatting
+    hovertext = [f"{date:%b %Y}<br>PD: {format_pd_dynamic(val)}" for date, val in pd_series.items()]
+
+    # Custom Y-axis tick formatting
+    tickvals = sorted(set(pd_series.values))
+    ticktext = [format_pd_dynamic(val) for val in tickvals]
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=pd_series.index,
@@ -91,27 +116,36 @@ def get_rolling_plot(ticker: str, mode: str):
         mode='lines+markers',
         name='PD',
         line=dict(width=2),
-        hovertemplate='%{x|%b %Y}<br>PD: %{y:.2%}<extra></extra>',
+        hoverinfo='text',
+        text=hovertext
     ))
 
     fig.update_layout(
-        title=f"{ticker.upper()} – PD ({mode.upper()})",
+        title=dict(text=f"{ticker.upper()}  Rolling Probability of Default ({mode.upper()})", x=0.5),
         xaxis_title="Date",
         yaxis_title="Probability of Default",
         xaxis=dict(
             tickformat="%Y-%m",
             tickangle=45,
-            tickmode='auto',
-            nticks=10,
-            showgrid=True
+            showgrid=True,
+            gridcolor='lightgrey',
+            ticks="outside"
         ),
-        yaxis=dict(showgrid=True),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='lightgrey',
+            tickvals=tickvals,
+            ticktext=ticktext,
+            ticks="outside"
+        ),
         template="plotly_white",
-        height=400,
-        width=800
+        height=500,
+        width=800,
+        margin=dict(l=60, r=20, t=60, b=60)
     )
 
     return fig
+
 
 
 def generate_stress_heatmap(E, sigma_E, D, r, T=1.0):
