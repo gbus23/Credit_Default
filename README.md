@@ -72,3 +72,22 @@ $$
 * Basis for more advanced structural credit models (e.g., Black–Cox, Leland–Toft).
 
 
+## 6. Project Structure  
+## Project Structure  
+
+## Project Structure  
+
+Credit_Default/  
+│  
+├── cache_data/           # Cached data files to avoid redundant computations  
+├── test/                 # Unit tests for model validation and consistency checks  
+│  
+├── data_loader.py        # Data loading and preprocessing utilities  
+├── main.py               # Main script for console-based execution  
+├── main_dash.py          # Interactive dashboard (Dash) for visualization  
+├── merton_model.py       # Core implementation of the Merton structural credit risk model  
+├── rolling_analysis.py   # Rolling window analysis for time series evaluation  
+├── sensitivity.py        # Sensitivity analysis on model parameters  
+├── stress_test.py        # Stress testing under adverse market scenarios  
+└── README.md             # Project documentation  
+
